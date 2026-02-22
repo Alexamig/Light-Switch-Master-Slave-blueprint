@@ -1,0 +1,930 @@
+blueprint:
+  name: Light_Switch Master_Slave v5.0 FINAL STABLE
+  description: >
+      ✔ Production-ready Master/Slave automation blueprint.
+      
+      ✔ Status: FINAL STABLE (frozen architecture)
+      
+      Универсальный blueprint для управления `light` и `switch`
+      с полной fail-safe защитой на основе датчика движения и таймера.
+    
+      <details>
+      <summary>⭐ ОСНОВНАЯ ЛОГИКА (развернуть описание)</summary>
+  
+        1️⃣ ⏱️  **ЗАДЕРЖКИ ПО ДВИЖЕНИЮ:`
+      
+       ⏳ **Задержка ДО движения:**
+        • Задержка подтверждения появления движения.
+        • Событие `motion_on` обрабатывается только если
+        • датчик находится в состоянии `on` непрерывно
+        • в течение заданного времени.
+        • Защита от ложных срабатываний при кратковременных сигналах.
+      
+       ⏳ **Задержка ПОСЛЕ движения:**
+        • Задержка подтверждения окончания движения.
+        • Событие `motion_off` обрабатывается с задержкой,
+        • и таймеры запускаются только после её окончания.
+        • Позволяет свету не гаснуть при кратковременном отсутствии движения.
+    
+      2️⃣ Master:
+        • Автоматически включается по движению, если:
+          – **🧍 По движению** = ВКЛ (разрешено авто-включение)
+          – **🌜 Режим Ночь** активен (или **🔆 Режим День/Ночь** выключен)
+        • При пропаже движения запускает таймер Master,
+          если Master находится во включённом состоянии.
+        • Ручное включение Master при отсутствии движения
+          ВСЕГДА запускает таймер Master.
+        • Ручное выключение Master:
+            – останавливает таймер Master;
+            – при включённой синхронизации выключает все Slave.
+        • ⚡ **Авто-включение по движению:**
+            – Master включается автоматически
+            – **Slave включаются автоматически ТОЛЬКО если:**
+              * включена синхронизация 🔄
+              * все Slave выключены
+              * разрешён режим Night/Day
+              * **🧍 По движению** = ВКЛ
+    
+      3️⃣ Slave:
+        • Таймер Slave является групповым:
+          один таймер управляет всеми Slave одновременно.
+        • При включении Slave (при активной синхронизации)
+          автоматически включает Master, если он был выключен.
+        • При ручном включении Slave без движения
+          запускается таймер Slave (только если синхронизация отключена).
+        • При включённой синхронизации:
+            – включаются **все** остальные Slave, кроме инициировавшего событие
+            – таймер Slave не используется (работает только таймер Master)
+        • Ручное выключение Slave:
+            – не выключает Master;
+            – если Master выключен и все Slave выключены,
+              активный таймер останавливается.
+        • Таймер Slave реагирует на появление движения:
+          при обнаружении движения таймер отменяется.
+    
+      4️⃣ Таймер:
+        • Таймеры Master и Slave запускаются только если они в состоянии idle (не активны).
+        • Останавливаются при появлении движения или при ручном выключении устройств.
+        • Таймер Master выключает Master и **все включённые Slave** (при синхронизации или общем таймере).
+        • Таймер Slave является общим для всех Slave и выключает ВСЕ включённые Slave одновременно.
+        • ⚠️ Работают ВСЕГДА, независимо от дня/ночи!
+    
+      5️⃣ День / Ночь (опционально):
+       | Режим | Движение | Авто-включение | Действие |
+       |-------|---------|----------------|----------|
+       | 🌞 День | Есть | ❌ Запрещено | Свет не включается |
+       | 🌞 День | Нет | ❌ Запрещено | - |
+       | 🌜 Ночь | Есть | ✅ Разрешено | Свет включается |
+       | 🌜 Ночь | Нет | ✅ Разрешено | - |
+       
+       **🔄 Смена режима:**
+       • День → Ночь, движение есть → **свет ВКЛЮЧАЕТСЯ** ✅
+       • Ночь → День, движение есть → **свет ВЫКЛЮЧАЕТСЯ** ✅
+       • Ночь → День, движения нет → **свет ВЫКЛЮЧАЕТСЯ** ✅
+    
+       🔧 Пример заглушки для night_sensor:
+       ```
+       template:
+         - binary_sensor:
+             - name: "Night Always"
+               unique_id: night_always
+               state: "{{ false }}"
+               availability: "{{ true }}"
+       ```
+       • `state: "{{ false }}"` - Всегда Ночь (OFF) ✅ авто-включение разрешено
+       • `state: "{{ true }}"`  - Всегда День (ON) ❌ авто-включение запрещено
+  
+      6️⃣ Fail-safe (аварийная защита):
+        • Если датчик движения становится `unavailable` или `unknown`,
+          и при этом Master или любой Slave остаётся включён,
+          запускается соответствующий таймер.
+        • Дополнительная периодическая проверка каждые 5 минут.
+     
+      7️⃣ Особенности:
+        • Поддержка любого количества Slave-устройств.
+        • Slave могут быть смешанных доменов (`light` и `switch`).
+        • **Две независимые задержки:** для включения (`debounce_no_motion`) и для выключения (`debounce_after_motion`).
+        • Все сервисные вызовы выполняются только при наличии целевых entity.
+        
+      8️⃣ **💡 ГИБКОСТЬ ТАЙМЕРОВ:**
+        • Один таймер для Master и Slave — выберите ОДИН И ТОТ ЖЕ `timer` helper в обоих полях!
+        • ✅ Master таймер выключит Master и Slave (при синхронизации)
+        • ✅ Slave таймер выключит только Slave  
+        • ⚡ Работает даже без синхронизации!
+        • 🔧 Просто укажите один entity в:
+          – `⏱️ Таймер Master`
+          – `⏲️ Таймер Slave`
+  
+      9️⃣ **🔌 УПРАВЛЕНИЕ РЕЖИМАМИ:**
+      
+        **Взаимодействие `🧍 По движению` и `🔆 Режим День/Ночь`:**
+      
+        | 🧍 По движению | 🔆 Режим День/Ночь | Движение | Результат |
+        |----------------|-------------------|----------|-----------|
+        | ✅ ВКЛ | ❌ ВЫКЛ | Есть | ✅ Свет включается всегда |
+        | ✅ ВКЛ | ❌ ВЫКЛ | Нет | ❌ Таймер запускается |
+        | ✅ ВКЛ | ✅ ВКЛ (День) | Есть | ❌ Свет НЕ включается |
+        | ✅ ВКЛ | ✅ ВКЛ (Ночь) | Есть | ✅ Свет включается |
+        | ❌ ВЫКЛ | Любой | Есть | ❌ Свет НЕ включается |
+        | ❌ ВЫКЛ | Любой | Нет | ❌ Только таймеры от ручного вкл |
+      
+        **Важно:** 
+        • `🧍 По движению = ВЫКЛ` полностью отключает автоматику,
+          но ручное управление и таймеры работают как обычно
+        • При смене День/Ночь свет синхронизируется с движением
+          (даже если `🧍 По движению = ВЫКЛ`)
+  
+      🔟 **🔕 ИГНОРИРОВАНИЕ ВРЕМЕНИ СУТОК ДЛЯ SLAVE:**
+    
+        Функция позволяет отдельным Slave работать **независимо** от дня/ночи.
+    
+        | Ситуация | 🔄 Синхронизация | 🔕 Игнорирование | Результат |
+        |----------|-----------------|------------------|-----------|
+        | Slave в списке | ❌ ВЫКЛ | ✅ В списке | **Работает всегда** |
+        | Slave НЕ в списке | ❌ ВЫКЛ | ❌ Вне списка | Следует день/ночь |
+        | Любой Slave | ✅ ВКЛ | Любое | ❌ **НЕ РАБОТАЕТ** (все как группа) |
+    
+        **📌 ВАЖНО:** Опция доступна только при **🔄 Синхронизация = ВЫКЛ**
+  
+      Project author: @Alexamig
+        • GitHub: https://github.com/Alexamig
+      </details>
+
+  domain: automation
+
+  input:
+
+    debounce_no_motion:
+      name: ⏳ Задержка ПЕРЕД движением
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 10
+          step: 1
+          unit_of_measurement: сек
+      description: |
+        Задержка подтверждения появления движения.
+        • Событие `motion_on` обрабатывается только если
+        • датчик находится в состоянии `on` непрерывно
+        • в течение заданного времени.
+
+    debounce_after_motion:
+      name: ⏳ Задержка ПОСЛЕ движения
+      default: 1
+      selector:
+        number:
+          min: 0
+          max: 30
+          step: 1
+          unit_of_measurement: сек
+      description: |
+        Задержка подтверждения окончания движения.
+        • Событие `motion_off` обрабатывается только если
+        • датчик находится в состоянии `off` непрерывно
+        • в течение заданного времени.
+
+    use_motion_sensor:
+      name: 🧍 Реакция на движение
+      default: true
+      selector:
+        boolean: {}
+      description: |
+        **✅ ВКЛ:** Автоматика реагирует на движение
+        **❌ ВЫКЛ:** Автоматика НЕ реагирует на движение, НО:
+        • Ручное управление работает
+        • Таймеры работают
+        • При смене дня/ночи свет синхронизируется (если есть движение)
+
+    motion_sensor:
+      name: 🏃 Датчик движения
+      selector:
+        entity:
+          domain: binary_sensor
+      description: |
+        Бинарный сенсор **(`motion/occupancy`)**
+        • Обязательный датчик.
+
+    master_entity:
+      name: Основной (💡Light/🎚️Switch)
+      selector:
+        entity:
+          domain: [light, switch]
+      description: |
+        **Основное устройство (`light` или `switch`):**
+        • Включается по движению или вручную.
+        • Обязательный основной элемент.
+
+    master_timer_helper:
+      name: ⏱️ Таймер (Master)
+      selector:
+        entity:
+          domain: timer
+      description: |
+        • Запускается после прекращения движения
+          или ручного включения Master.
+        ⚠️ **Обязателен к выбору!**
+        • Отдельный entity типа timer.
+        💡 **СОВЕТ:** Может использоваться ОДНОВРЕМЕННО как
+         таймер для Slave — выберите в поле «⏲️ Таймер Slave»!
+
+    master_time_off:
+      name: Установка таймера Master
+      default:
+        minutes: 2
+      selector:
+        duration: {}
+      description: |
+        Продолжительность работы таймера Master.
+        • Отдельный entity типа timer.
+
+    sync_slave_group:
+      name: 🔄 Синхронизация
+      default: false
+      selector:
+        boolean: {}
+      description: |
+        Если включено, все как группа.
+        • Выключение по Master выключает все Slave.
+
+    slave_entities:
+      name: Дополнительно (💡Light/🖲️Switch)
+      default: []
+      selector:
+        entity:
+          domain: [light, switch]
+          multiple: true
+      description: |
+        • **Могут быть `light` и `switch`, в том числе смешанными.**
+        • ⚠️ **ВНИМАНИЕ:** Не выбирайте Master устройство здесь
+          если уже выбрано в поле «Основной Light/Switch»
+        • Ручное включение Slave запускает таймер Slave,  
+          если синхронизация выключена и таймер выбран.
+        При включении синхронизации используется таймер Master.
+        • Необязательные доп. устройства.
+
+    slave_timer_helper:
+      name: ⏲️ Таймер (Slave)
+      default: null
+      selector:
+        entity:
+          domain: timer
+      description: |
+        ⚠️ **Обязателен** в режиме:
+        • Синхронизация выключена
+        • Есть устройства в «Доп. Light / Switch»
+        • Отдельный entity типа timer.
+        💡 **СОВЕТ:** Можно указать ТОТ ЖЕ таймер, что и в Master!
+        • Тогда один таймер будет управлять Master и Slave.
+
+    slave_time_off:
+      name: Установка таймера Slave
+      default:
+        minutes: 2
+      selector:
+        duration: {}
+      description: |
+        Продолжительность работы таймера Slave.
+        • ⚠️ Работает когда синхронизация выключена.
+
+    slave_ignore_day_night:
+      name: 🔕 Игнорировать время суток (Slave)
+      default: []
+      selector:
+        entity:
+          domain: [light, switch]
+          multiple: true
+      description: |
+        **📌 ВАЖНО:**
+        • ⚠️ Эта опция **НЕ РАБОТАЕТ** при включённой 🔄 **Синхронизации**
+        • При синхронизации все Slave управляются как единая группа через Master
+        • Функция доступна только в режиме **🔄 Синхронизация = ВЫКЛ**
+
+        **🎯 ПОВЕДЕНИЕ:**
+        • Slave в этом списке включаются по движению ВСЕГДА
+        • Остальные Slave следуют общему режиму 🌞День/🌜Ночь
+        • Смена дня/ночи влияет только на не выбранные устройства
+
+    night_sensor:
+      name: 🌞День/🌜Ночь
+      selector:
+        entity:
+          domain: binary_sensor
+      description: |
+        **Сенсор дня/ночи (Бинарный сенсор обязателен)**
+        • Или создать **template** заглушку. (**Код в описании**)
+        • ⚠️ Влияет на авто-включение по движению.
+        • 🌞 День (ON): авто-включение по движению запрещено.
+        • 🌜 Ночь (OFF): авто-включение по движению разрешено.
+
+    use_day_night:
+      name: Режим (🔆День/🕯️Ночь)
+      default: false
+      selector:
+        boolean: {}
+      description: |
+        **❌ ВЫКЛ:** Всегда НОЧЬ (авто-включение разрешено)
+        **✅ ВКЛ:** Зависит от датчика 🌞День/🌜Ночь:
+        • День (ON) → авто-включение запрещено
+        • Ночь (OFF) → авто-включение разрешено
+        Работает даже если 🧍 По движению = ВЫКЛ
+
+    invert_night_sensor:
+      name: 🌗 Инверсия → (день ↔ ночь)
+      default: false
+      selector:
+        boolean: {}
+      description: |
+        **Инвертирует логику День/Ночь:**
+        • **ON** → Обратное значение
+        • **OFF** → Прямое значение
+
+variables:
+  master_entity: !input master_entity
+  slave_entities: !input slave_entities
+  motion_sensor: !input motion_sensor
+  master_timer_entity: !input master_timer_helper
+  slave_timer_entity: !input slave_timer_helper
+  master_time_off: !input master_time_off
+  slave_time_off: !input slave_time_off
+  debounce_no_motion: !input debounce_no_motion
+  debounce_after_motion: !input debounce_after_motion
+  sync_slave_group: !input sync_slave_group
+  use_motion_sensor: !input use_motion_sensor
+  use_day_night: !input use_day_night
+  night_sensor: !input night_sensor
+  invert_night_sensor: !input invert_night_sensor
+
+  has_slaves: "{{ slave_entities | length > 0 }}"
+  motion_ok: "{{ states(motion_sensor) not in ('unavailable','unknown') }}"
+
+  night_is_active: >
+    {% if not use_day_night %}
+      true
+    {% else %}
+      {% set s = states(night_sensor) %}
+      {% if s in ('unknown','unavailable') %}
+        false
+      {% else %}
+        {% set night = s == 'off' %}
+        {{ not night if invert_night_sensor else night }}
+      {% endif %}
+    {% endif %}
+  
+  auto_allowed: "{{ night_is_active }}"
+
+  day_night_ready: >
+    {{ not use_day_night
+       or states(night_sensor) not in ('unknown','unavailable') }}
+
+  # --- переменные для игнорирования Day/Night ---
+  slave_ignore_day_night: !input slave_ignore_day_night
+
+  # Список Slave, которые реагируют на Day/Night
+  slaves_day_night_active: >
+    {% if has_slaves %}
+      {% if sync_slave_group %}
+        {{ slave_entities }}
+      {% else %}
+        {{ slave_entities | reject('in', slave_ignore_day_night) | list }}
+      {% endif %}
+    {% else %}
+      []
+    {% endif %}
+  
+
+mode: restart
+
+trigger:
+  - platform: state
+    entity_id: !input motion_sensor
+    to: "on"
+    for:
+      seconds: !input debounce_no_motion
+    id: motion_on
+
+  - platform: state
+    entity_id: !input motion_sensor
+    to: "off"
+    for:
+      seconds: !input debounce_after_motion
+    id: motion_off
+
+  - platform: state
+    entity_id: !input motion_sensor
+    to: ["unavailable","unknown"]
+    id: motion_unavailable
+
+  - platform: event
+    event_type: timer.finished
+    id: timer_finished
+
+  - platform: state
+    entity_id: !input master_entity
+    id: master_changed
+
+  - platform: state
+    entity_id: !input slave_entities
+    id: slave_changed
+
+  - platform: time_pattern
+    minutes: "/5"
+    id: safety_check
+
+  - platform: state
+    entity_id: !input night_sensor
+    id: night_sensor_changed
+
+action:
+  # ❗ Защита от некорректной конфигурации
+  - choose:
+      # 1️⃣ Проверка Master в Slave
+      - conditions: "{{ master_entity in slave_entities }}"
+        sequence:
+          - variables:
+              notif_id: "master_slave_conflict_{{ master_entity|replace('.', '_') }}"
+          - service: persistent_notification.create
+            data:
+              title: "⚠️ Конфликт устройств: Master в Slave"
+              message: "🚨 Устройство `{{ master_entity }}` выбрано одновременно как Master и Slave"
+              notification_id: "{{ notif_id }}"
+          - stop: "Master cannot be Slave"
+      
+      # 2️⃣ Проверка таймера Slave
+      - conditions: >
+          {{ has_slaves 
+             and slave_timer_entity is none 
+             and not (sync_slave_group and master_timer_entity is not none) }}
+        sequence:
+          - variables:
+              notif_id: "missing_slave_timer_{{ master_entity|replace('.', '_') }}"
+          - service: persistent_notification.create
+            data:
+              title: "⚠️ Ошибка конфигурации Slave"
+              message: |
+                🚨 **Синхронизация:** {{ 'Включена' if sync_slave_group else 'Выключена' }}
+                ⚠️ **Таймер Slave:** Не выбран
+              notification_id: "{{ notif_id }}"
+          - stop: "Missing Slave timer"
+      
+      # 3️⃣ Проверка Master в slave_ignore_day_night
+      - conditions: "{{ master_entity in slave_ignore_day_night }}"
+        sequence:
+          - variables:
+              notif_id: "master_ignore_conflict_{{ master_entity|replace('.', '_') }}"
+          - service: persistent_notification.create
+            data:
+              title: "⚠️ Конфликт: Master в списке игнорирования"
+              message: |
+                🚨 **Устройство:** `{{ master_entity }}`
+                
+                ⚠️ **Проблема:** Master выбран в списке:
+                «Игнорировать время суток (Slave)»
+                
+                **📌 Почему это ошибка:**
+                • Master всегда управляется общим режимом дня/ночи
+                • Опция `slave_ignore_day_night` работает **только для Slave**
+                
+                **✅ Решение:**
+                Удалить `{{ master_entity }}` из списка:
+                «Игнорировать время суток (Slave)»
+              notification_id: "{{ notif_id }}"
+          - stop: "Master cannot be in slave_ignore_day_night"
+
+
+  - variables:
+      slaves_list: >-
+        {% if has_slaves %}
+          {% set ns = namespace(list=[]) %}
+          {% for entity in slave_entities %}
+            {% set ns.list = ns.list + [entity] %}
+          {% endfor %}
+          {{ ns.list }}
+        {% else %}
+          []
+        {% endif %}
+
+      slaves_on_now: >-
+        {% if has_slaves %}
+          {{ expand(slaves_list) 
+             | selectattr('state', 'in', ['on', 'true'])
+             | map(attribute='entity_id')
+             | list }}
+        {% else %}
+          []
+        {% endif %}
+      
+      slaves_empty: "{{ slaves_on_now | length == 0 }}"
+      slaves_count: "{{ slaves_on_now | length }}"
+      motion_state: "{{ states(motion_sensor) }}"
+      timer_state: "{{ states(master_timer_entity) }}"
+      slave_timer_state: "{{ states(slave_timer_entity) if slave_timer_entity else 'idle' }}"
+      master_state: "{{ states(master_entity) }}"
+      same_timer: "{{ master_timer_entity == slave_timer_entity }}"
+
+
+  # 🔄 БЛОКИ choose
+  - choose:
+
+      # 1️⃣ Motion ON
+      - conditions: "{{ trigger.id == 'motion_on' }}"
+        sequence:
+          - if: "{{ timer_state != 'idle' }}"
+            then:
+              - service: timer.cancel
+                target: { entity_id: !input master_timer_helper }
+          
+          - if: "{{ has_slaves and slave_timer_entity and slave_timer_state != 'idle' }}"
+            then:
+              - service: timer.cancel
+                target: { entity_id: !input slave_timer_helper }
+          
+          # Проверяем разрешено ли автоматическое включение
+          - if: "{{ not use_motion_sensor }}"
+            then:
+              - stop: "Motion disabled"
+          
+          - if: "{{ use_day_night and not day_night_ready }}"
+            then:
+              - stop: "Day/Night sensor not ready"
+          
+          # Включаем Master если разрешено ночью/днём
+          - if: "{{ night_is_active and motion_state == 'on' and master_state == 'off' }}"
+            then:
+              - service: homeassistant.turn_on
+                target: { entity_id: !input master_entity }
+          
+          # Включаем Slave если разрешено ночью/днём
+          - if: >
+              {{ night_is_active
+                 and sync_slave_group
+                 and has_slaves
+                 and slaves_empty
+                 and motion_state == 'on' }}
+            then:
+              - service: homeassistant.turn_on
+                target: { entity_id: "{{ slaves_list }}" }
+
+      # 2️⃣ Motion OFF
+      - conditions: "{{ trigger.id == 'motion_off' }}"
+        sequence:
+          - variables:
+              current_motion: "{{ states(motion_sensor) }}"
+              master_state: "{{ states(master_entity) }}"
+              slaves_on_now: >-
+                {% if has_slaves %}
+                  {% set ns = namespace(list=[]) %}
+                  {% for entity in slaves_list %}
+                    {% if states(entity) in ['on', 'true'] %}
+                      {% set ns.list = ns.list + [entity] %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ ns.list }}
+                {% else %}
+                  []
+                {% endif %}
+              slaves_count: "{{ slaves_on_now | length }}"
+              any_on: "{{ master_state == 'on' or slaves_count > 0 }}"
+              timer_state: "{{ states(master_timer_entity) }}"
+              slave_timer_state: "{{ states(slave_timer_entity) if slave_timer_entity else 'idle' }}"
+          
+          - if: "{{ current_motion == 'off' }}"
+            then:
+              - choose:
+                  - conditions: "{{ same_timer }}"
+                    sequence:
+                      - if: "{{ any_on and timer_state == 'idle' }}"
+                        then:
+                          - service: timer.start
+                            target: { entity_id: !input master_timer_helper }
+                            data: { duration: "{{ master_time_off }}" }
+                  
+                  - conditions: "{{ not same_timer }}"
+                    sequence:
+                      - if: "{{ master_state == 'on' and timer_state == 'idle' }}"
+                        then:
+                          - service: timer.start
+                            target: { entity_id: !input master_timer_helper }
+                            data: { duration: "{{ master_time_off }}" }
+                      
+                      - if: >
+                          {{ not sync_slave_group
+                             and slaves_count > 0
+                             and slave_timer_state == 'idle' }}
+                        then:
+                          - service: timer.start
+                            target: { entity_id: !input slave_timer_helper }
+                            data: { duration: "{{ slave_time_off }}" }
+
+      # 3️⃣ Night Sensor Changed
+      - conditions: "{{ trigger.id == 'night_sensor_changed' }}"
+        sequence:
+          - if: "{{ not use_day_night or trigger.from_state is none }}"
+            then:
+              - stop: "Day/Night change ignored"
+      
+          - variables:
+              motion_state: "{{ states(motion_sensor) }}"
+              master_state: "{{ states(master_entity) }}"
+              slaves_on_now: >
+                {% if has_slaves %}
+                  {{ expand(slaves_list)
+                     | selectattr('state','in',['on','true'])
+                     | map(attribute='entity_id')
+                     | list }}
+                {% else %}
+                  []
+                {% endif %}
+              slaves_empty: "{{ slaves_on_now | length == 0 }}"
+      
+          - if: "{{ night_is_active and motion_state == 'on' and master_state == 'off' }}"
+            then:
+              - service: homeassistant.turn_on
+                target: { entity_id: !input master_entity }
+
+          - if: >
+              {{ night_is_active
+                 and motion_state == 'on'
+                 and sync_slave_group
+                 and slaves_day_night_active | length > 0 }}
+            then:
+              - service: homeassistant.turn_on
+                target: { entity_id: "{{ slaves_day_night_active }}" }
+          
+          - if: "{{ not night_is_active }}"
+            then:
+              - service: homeassistant.turn_off
+                target: { entity_id: !input master_entity }
+          
+              - if: "{{ slaves_day_night_active | length > 0 }}"
+                then:
+                  - service: homeassistant.turn_off
+                    target: { entity_id: "{{ slaves_day_night_active }}" }
+
+      # 4️⃣ Motion unavailable
+      - conditions: "{{ trigger.id == 'motion_unavailable' }}"
+        sequence:
+          - choose:
+              - conditions: "{{ sync_slave_group and has_slaves and slaves_on_now|length > 0 }}"
+                sequence:
+                  - if: "{{ timer_state == 'idle' }}"
+                    then:
+                      - service: timer.start
+                        target: { entity_id: !input master_timer_helper }
+                        data: { duration: "{{ master_time_off }}" }
+              
+              - conditions: "{{ not sync_slave_group }}"
+                sequence:
+                  - if: "{{ master_state == 'on' and timer_state == 'idle' }}"
+                    then:
+                      - service: timer.start
+                        target: { entity_id: !input master_timer_helper }
+                        data: { duration: "{{ master_time_off }}" }
+                  
+                  - if: >
+                      {{ has_slaves 
+                         and slave_timer_entity
+                         and slaves_on_now|length > 0
+                         and slave_timer_state == 'idle' }}
+                    then:
+                      - service: timer.start
+                        target: { entity_id: !input slave_timer_helper }
+                        data: { duration: "{{ slave_time_off }}" }
+
+      # 5️⃣ Master changed
+      - conditions: "{{ trigger.id == 'master_changed' }}"
+        sequence:
+          - variables:
+              master_state: "{{ trigger.to_state.state }}"
+              manual: "{{ trigger.to_state.context.user_id is not none }}"
+              current_motion: "{{ states(motion_sensor) }}"
+              slaves_on_now: >-
+                {% if has_slaves %}
+                  {{ expand(slaves_list)
+                     | selectattr('state', 'in', ['on', 'true'])
+                     | map(attribute='entity_id')
+                     | list }}
+                {% else %}
+                  []
+                {% endif %}
+              slaves_empty: "{{ slaves_on_now | length == 0 }}"
+              slaves_count: "{{ slaves_on_now | length }}"
+              timer_state: "{{ states(master_timer_entity) }}"
+              slave_timer_state: "{{ states(slave_timer_entity) if slave_timer_entity else 'idle' }}"
+          
+          - if: "{{ master_state == 'on' }}"
+            then:
+              - if: "{{ sync_slave_group and has_slaves and slaves_empty }}"
+                then:
+                  - service: homeassistant.turn_on
+                    target: { entity_id: "{{ slaves_list }}" }
+              
+              - if: "{{ current_motion == 'off' and timer_state == 'idle' }}"
+                then:
+                  - service: timer.start
+                    target: { entity_id: !input master_timer_helper }
+                    data: { duration: "{{ master_time_off }}" }
+          
+          - if: "{{ master_state == 'off' and manual }}"
+            then:
+              - service: timer.cancel
+                target: { entity_id: !input master_timer_helper }
+              
+              - if: "{{ sync_slave_group and has_slaves }}"
+                then:
+                  - service: homeassistant.turn_off
+                    target: { entity_id: "{{ slaves_list }}" }
+              
+              - if: "{{ not same_timer and has_slaves and slaves_count > 0 and current_motion == 'off' }}"
+                then:
+                  - if: "{{ slave_timer_state == 'idle' }}"
+                    then:
+                      - service: timer.start
+                        target: { entity_id: !input slave_timer_helper }
+                        data: { duration: "{{ slave_time_off }}" }
+                  
+                  - if: "{{ timer_state == 'idle' and current_motion == 'off' }}"
+                    then:
+                      - service: timer.start
+                        target: { entity_id: !input master_timer_helper }
+                        data: { duration: "{{ master_time_off }}" }
+              
+              - if: "{{ same_timer and has_slaves and slaves_count > 0 and current_motion == 'off' and timer_state == 'idle' }}"
+                then:
+                  - service: timer.start
+                    target: { entity_id: !input master_timer_helper }
+                    data: { duration: "{{ master_time_off }}" }
+
+      # 6️⃣ Slave changed
+      - conditions: "{{ trigger.id == 'slave_changed' }}"
+        sequence:
+          - variables:
+              state: "{{ trigger.to_state.state }}"
+              slaves_on_now: >-
+                {% if has_slaves %}
+                  {{ expand(slaves_list)
+                     | selectattr('state', 'in', ['on', 'true'])
+                     | map(attribute='entity_id')
+                     | list }}
+                {% else %}
+                  []
+                {% endif %}
+              slaves_empty: "{{ slaves_on_now | length == 0 }}"
+              slaves_count: "{{ slaves_on_now | length }}"
+              master_state: "{{ states(master_entity) }}"
+              current_motion: "{{ states(motion_sensor) }}"
+              timer_state: "{{ states(master_timer_entity) }}"
+              slave_timer_state: "{{ states(slave_timer_entity) if slave_timer_entity else 'idle' }}"
+          
+          - if: "{{ state in ['on', 'true'] }}"
+            then:
+              - if: "{{ sync_slave_group and master_state == 'off' }}"
+                then:
+                  - service: homeassistant.turn_on
+                    target: { entity_id: !input master_entity }
+              
+              - if: "{{ sync_slave_group and has_slaves }}"
+                then:
+                  - variables:
+                      other_slaves: "{{ slaves_list | reject('equalto', trigger.entity_id) | list }}"
+                  - if: "{{ other_slaves | length > 0 }}"
+                    then:
+                      - service: homeassistant.turn_on
+                        target: { entity_id: "{{ other_slaves }}" }
+              
+              - if: "{{ current_motion == 'off' }}"
+                then:
+                  - choose:
+                      - conditions: "{{ not same_timer and not sync_slave_group }}"
+                        sequence:
+                          - if: "{{ slave_timer_state == 'idle' }}"
+                            then:
+                              - service: timer.start
+                                target: { entity_id: !input slave_timer_helper }
+                                data: { duration: "{{ slave_time_off }}" }
+                      - conditions: "{{ same_timer }}"
+                        sequence:
+                          - if: "{{ timer_state == 'idle' }}"
+                            then:
+                              - service: timer.start
+                                target: { entity_id: !input master_timer_helper }
+                                data: { duration: "{{ master_time_off }}" }
+          
+          - if: "{{ state in ['off', 'false'] }}"
+            then:
+              - if: "{{ master_state == 'off' and slaves_empty and current_motion == 'off' }}"
+                then:
+                  - if: "{{ timer_state == 'active' }}"
+                    then:
+                      - service: timer.cancel
+                        target: { entity_id: !input master_timer_helper }
+                  
+                  - if: "{{ not same_timer and not sync_slave_group and slave_timer_state == 'active' }}"
+                    then:
+                      - service: timer.cancel
+                        target: { entity_id: !input slave_timer_helper }
+
+      # 7️⃣ Master timer finished
+      - conditions: >
+          {{ trigger.id == 'timer_finished' 
+             and trigger.event.data.entity_id == master_timer_entity }}
+        sequence:
+          - variables:
+              slaves_on_now: >-
+                {% if has_slaves %}
+                  {{ expand(slaves_list)
+                     | selectattr('state', 'in', ['on', 'true'])
+                     | map(attribute='entity_id')
+                     | list }}
+                {% else %}
+                  []
+                {% endif %}
+              entities_to_off: >-
+                {% set list = [master_entity] %}
+                {% if has_slaves and (sync_slave_group or same_timer) %}
+                  {% set list = list + slaves_on_now %}
+                {% endif %}
+                {{ list }}
+          
+          - service: homeassistant.turn_off
+            target: { entity_id: "{{ entities_to_off }}" }
+      
+      # 8️⃣ Slave timer finished
+      - conditions: >
+          {{ trigger.id == 'timer_finished' 
+             and master_timer_entity != slave_timer_entity
+             and trigger.event.data.entity_id == slave_timer_entity }}
+        sequence:
+          - variables:
+              slaves_on_now: >-
+                {% if has_slaves %}
+                  {{ expand(slaves_list)
+                     | selectattr('state', 'in', ['on', 'true'])
+                     | map(attribute='entity_id')
+                     | list }}
+                {% else %}
+                  []
+                {% endif %}
+          
+          - service: homeassistant.turn_off
+            target: { entity_id: "{{ slaves_on_now }}" }
+
+      # 9️⃣ Safety check (каждые 5 минут)
+      - conditions: "{{ trigger.id == 'safety_check' }}"
+        sequence:
+          - variables:
+              motion_state: "{{ states(motion_sensor) }}"
+              master_state: "{{ states(master_entity) }}"
+              timer_state: "{{ states(master_timer_entity) }}"
+              slave_timer_state: "{{ states(slave_timer_entity) if slave_timer_entity else 'idle' }}"
+              same_timer: "{{ master_timer_entity == slave_timer_entity }}"
+              
+              slaves_on_now: >
+                {% if has_slaves %}
+                  {{ expand(slaves_list)
+                     | selectattr('state', 'in', ['on', 'true'])
+                     | map(attribute='entity_id')
+                     | list }}
+                {% else %}
+                  []
+                {% endif %}
+              slaves_count: "{{ slaves_on_now | length }}"
+              any_on: "{{ master_state == 'on' or slaves_count > 0 }}"
+          
+          - if: "{{ motion_state in ('unavailable', 'unknown') }}"
+            then:
+              - choose:
+                  - conditions: "{{ any_on }}"
+                    sequence:
+                      - choose:
+                          - conditions: "{{ same_timer }}"
+                            sequence:
+                              - if: "{{ timer_state == 'idle' }}"
+                                then:
+                                  - service: timer.start
+                                    target: { entity_id: !input master_timer_helper }
+                                    data: { duration: "{{ master_time_off }}" }
+                          
+                          - conditions: "{{ not same_timer }}"
+                            sequence:
+                              - if: "{{ master_state == 'on' and timer_state == 'idle' }}"
+                                then:
+                                  - service: timer.start
+                                    target: { entity_id: !input master_timer_helper }
+                                    data: { duration: "{{ master_time_off }}" }
+                              
+                              - if: >
+                                  {{ not sync_slave_group
+                                     and slaves_count > 0
+                                     and slave_timer_state == 'idle' }}
+                                then:
+                                  - service: timer.start
+                                    target: { entity_id: !input slave_timer_helper }
+                                    data: { duration: "{{ slave_time_off }}" }
+
+
+
+
+
+
+
