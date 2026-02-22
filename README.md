@@ -1,6 +1,7 @@
 # Light/Switch Master-Slave Blueprint v5.0 FINAL STABLE
 
 [Russian](README.ru.md)
+
 [![GitHub license](https://img.shields.io/github/license/Alexamig/Light-Switch-Master-Slave-blueprint)](LICENSE)
 ![GitHub release](https://img.shields.io/github/v/release/Alexamig/Light-Switch-Master-Slave-blueprint)
 
