@@ -1,8 +1,7 @@
 # Light/Switch Master-Slave Blueprint v5.0 FINAL STABLE
 
 [Russian](README.ru.md)
-
-[![GitHub license](https://img.shields.io/github/license/yourusername/Light-Switch-Master-Slave-blueprint)](LICENSE)
+[![GitHub license](https://github.com/Alexamig/Light-Switch-Master-Slave-blueprint/blob/main/LICENSE)
 ![GitHub release](https://img.shields.io/github/v/release/Alexamig/Light-Switch-Master-Slave-blueprint)
 
 **Production-ready Master/Slave automation blueprint for Home Assistant**
