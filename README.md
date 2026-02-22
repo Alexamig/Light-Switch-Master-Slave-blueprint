@@ -2,7 +2,7 @@
 
 [Russian](README.ru.md)
 
-[![GitHub license](https://img.shields.io/github/license/yourusername/ihseno-presence-sensor-converter)](LICENSE)
+[![GitHub license](https://img.shields.io/github/license/yourusername/Light-Switch-Master-Slave-blueprint)](LICENSE)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 ![GitHub release](https://img.shields.io/github/v/release/Alexamig/Light-Switch-Master-Slave-blueprint)
 
