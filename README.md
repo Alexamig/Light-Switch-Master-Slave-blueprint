@@ -8,110 +8,144 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/Alexamig/ha-light-switch-master-slave/blob/main/LICENSE)
 ![GitHub release](https://img.shields.io/github/v/release/Alexamig/Light-Switch-Master-Slave-blueprint)
 
-**Production-ready Master/Slave automation blueprint for Home Assistant**
+# Home Assistant Master/Slave Motion Automation Blueprint
 
-Universal blueprint for controlling `light` and `switch` entities with complete fail-safe protection based on motion sensor and timers.
+A universal blueprint for managing `light` and `switch` entities with comprehensive fail-safe protection based on motion sensors and timers.
+Slaves can be mixed domains (light and switch).
 
-## 📌 Status
+## ⭐ CORE LOGIC
 
-✅ **FINAL STABLE** – frozen architecture, thoroughly tested in production
+### 1️⃣ Motion Delays
 
----
+**⏳ Pre-motion delay:**
+- Motion confirmation delay
+- `motion_on` event is processed only if the sensor remains in `on` state continuously for the specified time
+- Protection against false triggers from brief signals
 
-## ✨ Key Features
+**⏳ Post-motion delay:**
+- Motion end confirmation delay
+- `motion_off` event is processed with a delay, timers start only after it expires
+- Prevents lights from turning off during brief motion gaps
 
-| Feature | Description |
-|---------|-------------|
-| **⏱️ Dual motion delays** | Separate delays for motion start (`debounce_no_motion`) and motion end (`debounce_after_motion`) |
-| **🎚️ Master/Slave architecture** | One master + unlimited slaves (mixed `light`/`switch`) |
-| **🔄 Flexible sync modes** | Group mode or independent operation |
-| **⏲️ Timer flexibility** | Separate timers OR one common timer |
-| **🌞🌜 Day/Night mode** | Auto-enable only at night (with invert option) |
-| **🔕 Per-slave day/night ignore** | Select slaves that work ALWAYS |
-| **🛡️ Fail-safe protection** | Auto-timers if sensor unavailable + 5-min safety checks |
-| **🔧 Triple config validation** | Master in slaves, missing timers, Master in ignore list |
+### 2️⃣ Master Device
+- Automatically turns on when motion detected if:
+  - **🧍 Motion Control** = ON (auto-on enabled)
+  - **🌜 Night Mode** is active (or **🔆 Day/Night Mode** is off)
+- When motion stops, starts Master timer if Master is on
+- Manual Master turn-on WITHOUT motion ALWAYS starts Master timer
+- Manual Master turn-off:
+  - Stops Master timer
+  - Turns off all Slaves if synchronization is enabled
+- **⚡ Auto-on by motion:**
+  - Master turns on automatically
+  - **Slaves turn on automatically ONLY if:**
+    * Sync 🔄 is enabled
+    * All Slaves are off
+    * Night/Day mode allows it
+    * **🧍 Motion Control** = ON
 
----
+### 3️⃣ Slave Devices
+- Slave timer is shared: one timer manages all Slaves simultaneously
+- When a Slave turns on (with sync enabled), automatically turns on Master if it was off
+- Manual Slave turn-on without motion starts Slave timer (only if sync is disabled)
+- When sync is enabled:
+  - ALL other Slaves turn on, except the one that triggered the event
+  - Slave timer is not used (only Master timer works)
+- Manual Slave turn-off:
+  - Does NOT turn off Master
+  - If Master is off and all Slaves are off, active timer stops
+- Slave timer responds to motion: timer cancels when motion detected
 
-## 📋 Input Fields
+### 4️⃣ Timer Logic
+- Master and Slave timers start only when in idle state (not active)
+- Timers stop when motion detected or devices manually turned off
+- Master timer turns off Master and ALL active Slaves (with sync or shared timer)
+- Slave timer is shared for all Slaves and turns off ALL active Slaves simultaneously
+- **⚠️ Timers ALWAYS work, regardless of day/night mode!**
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `debounce_no_motion` | ✓ | Delay before motion triggers (0-10 sec) |
-| `debounce_after_motion` | ✓ | Delay after motion stops (0-30 sec) |
-| `use_motion_sensor` | ✓ | Master switch for auto-enable |
-| `motion_sensor` | ✓ | Binary motion/occupancy sensor |
-| `master_entity` | ✓ | Main light/switch |
-| `master_timer_helper` | ✓ | Timer for Master |
-| `master_time_off` | ✓ | Master timer duration |
-| `sync_slave_group` | ✓ | Group mode ON/OFF |
-| `slave_entities` | - | Additional lights/switches |
-| `slave_timer_helper` | - | Timer for Slaves |
-| `slave_time_off` | - | Slave timer duration |
-| `slave_ignore_day_night` | - | Slaves that ignore day/night |
-| `night_sensor` | ✓ | Day/Night binary sensor |
-| `use_day_night` | ✓ | Enable day/night mode |
-| `invert_night_sensor` | ✓ | Invert day/night logic |
+### 5️⃣ Day/Night Mode (optional)
 
----
+| Mode | Motion | Auto-on | Action |
+|------|--------|---------|--------|
+| ☀️ Day | Yes | ❌ Disabled | Lights don't turn on |
+| ☀️ Day | No | ❌ Disabled | - |
+| 🌙 Night | Yes | ✅ Enabled | Lights turn on |
+| 🌙 Night | No | ✅ Enabled | - |
 
-## 📊 Behavior Reference
+**🔄 Mode switching:**
+- Day → Night, motion present → **lights TURN ON** ✅
+- Night → Day, motion present → **lights TURN OFF** ✅
+- Night → Day, no motion → **lights TURN OFF** ✅
 
-### Day/Night Mode
-
-| Mode | Motion | Auto-enable | Action |
-|------|--------|-------------|--------|
-| 🌞 Day | Yes | ❌ Disabled | No light |
-| 🌞 Day | No | ❌ Disabled | - |
-| 🌜 Night | Yes | ✅ Enabled | Light ON |
-| 🌜 Night | No | ✅ Enabled | - |
-
-### Motion Response × Day/Night
-
-| Motion Response | Day/Night Mode | Motion | Result |
-|-----------------|----------------|--------|--------|
-| ✅ ON | ❌ OFF | Yes | ✅ Light ON |
-| ✅ ON | ❌ OFF | No | ❌ Timer starts |
-| ✅ ON | ✅ ON (Day) | Yes | ❌ Light OFF |
-| ✅ ON | ✅ ON (Night) | Yes | ✅ Light ON |
-| ❌ OFF | Any | Yes | ❌ Light OFF |
-| ❌ OFF | Any | No | ❌ Manual only |
-
-### Per-Slave Day/Night Ignore
-
-| Situation | Sync | Ignore List | Result |
-|-----------|------|-------------|--------|
-| Slave in list | ❌ OFF | ✅ In list | **Always works** |
-| Slave NOT in list | ❌ OFF | ❌ Not in list | Follows day/night |
-| Any Slave | ✅ ON | Any | ❌ **Does NOT work** |
-
----
-
-## 🚀 Installation
-
-### Via HACS (recommended)
-
-1. Add this repository to HACS:
-   - HACS → Integrations → 3 dots → Custom repositories
-   - URL: `https://github.com/Alexamig/Light-Switch-Master-Slave-blueprint`
-   - Category: `Blueprint`
-
-2. Find "Light/Switch Master-Slave" in HACS blueprints and download
-
-### Manual installation
-
-1. Copy `blueprint.yaml` to your Home Assistant `blueprints/automation/` folder
-2. In HA, go to **Settings → Automations & Scenes → Blueprints**
-3. Click **Import Blueprint** and select the file
-
----
-
-## 🔧 Example Dummy for Night Sensor
-
+**🔧 Example night_sensor placeholder:**
 ```yaml
 template:
   - binary_sensor:
       - name: "Night Always"
         unique_id: night_always
-        state: "{{ false }}"  # false = Always Night, true = Always Day
+        state: "{{ false }}"
         availability: "{{ true }}"
+
+state: "{{ false }}" - Always Night (OFF) ✅ auto-on enabled
+state: "{{ true }}" - Always Day (ON) ❌ auto-on disabled
+```
+
+6️⃣ Fail-safe Protection
+If motion sensor becomes unavailable or unknown while Master or any Slave remains on, the corresponding timer starts
+
+Additional periodic check every 5 minutes
+
+7️⃣ Features
+Supports any number of Slave devices
+
+Slaves can be mixed domains (light and switch)
+
+Two independent delays: turn-on debounce (debounce_no_motion) and turn-off debounce (debounce_after_motion)
+
+All service calls execute only when target entities exist
+
+8️⃣ 💡 Timer Flexibility
+One timer for Master and Slave — use the SAME timer helper in both fields!
+
+✅ Master timer turns off Master and Slaves (with sync)
+
+✅ Slave timer turns off only Slaves
+
+⚡ Works even without synchronization!
+
+🔧 Simply specify one entity in:
+
+⏱️ Master Timer
+
+⏲️ Slave Timer
+
+9️⃣ 🔌 Mode Control
+
+**Interaction between `🧍 Motion Control` and `🔆 Day/Night Mode`:**
+
+| 🧍 Motion Control | 🔆 Day/Night Mode | Motion | Result |
+|-------------------|-------------------|--------|--------|
+| ✅ ON | ❌ OFF | Yes | ✅ Lights always turn on |
+| ✅ ON | ❌ OFF | No | ❌ Timer starts |
+| ✅ ON | ✅ ON (Day) | Yes | ❌ Lights DON'T turn on |
+| ✅ ON | ✅ ON (Night) | Yes | ✅ Lights turn on |
+| ❌ OFF | Any | Yes | ❌ Lights DON'T turn on |
+| ❌ OFF | Any | No | ❌ Only timers from manual on |
+
+**Important:**
+- `🧍 Motion Control = OFF` completely disables automation, but manual control and timers work normally
+- When Day/Night mode changes, lights sync with motion (even if `🧍 Motion Control = OFF`)
+
+---
+
+### 🔟 🔕 Ignoring Time of Day for Slaves
+
+This feature allows specific Slaves to work **independently** of day/night mode.
+
+| Situation | 🔄 Sync | 🔕 Ignore | Result |
+|-----------|---------|-----------|--------|
+| Slave in list | ❌ OFF | ✅ In list | **Always works** |
+| Slave NOT in list | ❌ OFF | ❌ Not in list | Follows day/night |
+| Any Slave | ✅ ON | Any | ❌ **DOESN'T WORK** (all as group) |
+
+**📌 IMPORTANT:** This option is only available when **🔄 Sync = OFF**
