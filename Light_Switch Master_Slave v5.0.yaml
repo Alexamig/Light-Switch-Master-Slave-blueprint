@@ -90,9 +90,10 @@ blueprint:
                unique_id: night_always
                state: "{{ false }}"
                availability: "{{ true }}"
+               
+       • state: "{{ false }}" - Всегда Ночь (OFF) ✅ авто-включение разрешено
+       • state: "{{ true }}"  - Всегда День (ON) ❌ авто-включение запрещено
        ```
-       • `state: "{{ false }}"` - Всегда Ночь (OFF) ✅ авто-включение разрешено
-       • `state: "{{ true }}"`  - Всегда День (ON) ❌ авто-включение запрещено
   
       6️⃣ Fail-safe (аварийная защита):
         • Если датчик движения становится `unavailable` или `unknown`,
