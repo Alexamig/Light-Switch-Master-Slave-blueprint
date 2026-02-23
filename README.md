@@ -2,7 +2,11 @@
 
 [Russian](README.ru.md)
 
-[![GitHub license](https://img.shields.io/github/license/Alexamig/Light-Switch-Master-Slave-blueprint)](LICENSE)
+[![Version](https://img.shields.io/badge/version-v5.0-blue)](https://github.com/Alexamig/ha-light-switch-master-slave/releases)
+![Status](https://img.shields.io/badge/status-FINAL%20STABLE-success)
+![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.x%2B-41BDF5?logo=home-assistant)
+[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/Alexamig/ha-light-switch-master-slave/blob/main/LICENSE)
+![Stars](https://img.shields.io/github/stars/Alexamig/ha-light-switch-master-slave?style=social)
 ![GitHub release](https://img.shields.io/github/v/release/Alexamig/Light-Switch-Master-Slave-blueprint)
 
 **Production-ready Master/Slave automation blueprint for Home Assistant**
