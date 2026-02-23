@@ -11,7 +11,7 @@
 # Home Assistant Master/Slave Motion Automation Blueprint
 
 A universal blueprint for managing `light` and `switch` entities with comprehensive fail-safe protection based on motion sensors and timers.
-Slaves can be mixed domains (light and switch).
+Devices of the type (light or switch) can be used as master devices. Mixed devices of the same type (light and switch) can be used as slave devices at once.
 
 ## ⭐ CORE LOGIC
 
