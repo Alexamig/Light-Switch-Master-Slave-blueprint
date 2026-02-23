@@ -2,7 +2,7 @@
 
 [Russian](README.ru.md)
 
-[![Version](https://img.shields.io/badge/version-v5.0-blue)](https://github.com/Alexamig/ha-light-switch-master-slave/releases)
+[![Version](https://img.shields.io/badge/version-v5.0-blue)](https://github.com/Alexamig/Light-Switch-Master-Slave-blueprint/releases/tag/v5.0)
 ![Status](https://img.shields.io/badge/status-FINAL%20STABLE-success)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.x%2B-41BDF5?logo=home-assistant)
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/Alexamig/ha-light-switch-master-slave/blob/main/LICENSE)
