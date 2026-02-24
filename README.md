@@ -7,6 +7,7 @@
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.x%2B-41BDF5?logo=home-assistant)
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/Alexamig/ha-light-switch-master-slave/blob/main/LICENSE)
 ![GitHub release](https://img.shields.io/github/v/release/Alexamig/Light-Switch-Master-Slave-blueprint)
+![GitHub all releases](https://img.shields.io/github/downloads/Alexamig/Light-Switch-Master-Slave-blueprint/total)
 
 # Home Assistant Master/Slave Motion Automation Blueprint
 
