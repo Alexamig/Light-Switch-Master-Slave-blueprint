@@ -14,7 +14,7 @@
 A universal blueprint for managing `light` and `switch` entities with comprehensive fail-safe protection based on motion sensors and timers.
 Devices of the type (light or switch) can be used as master devices. Mixed devices of the same type (light and switch) can be used as slave devices at once.
 
-## **Please support the author by clicking the Star button 🌟**
+## **❤️ Please support the author by clicking the Star button 🌟**
 
 ## ⭐ CORE LOGIC
 
