@@ -446,27 +446,43 @@ action:
         sequence:
           - variables:
               notif_id: "master_slave_conflict_{{ master_entity|replace('.', '_') }}"
+          
           - service: persistent_notification.create
             data:
               title: "⚠️ Конфликт устройств: Master в Slave"
-              message: "🚨 Устройство `{{ master_entity }}` выбрано одновременно как Master и Slave"
+              message: >
+                🔴 **Устройство:** `{{ master_entity }}`
+                
+                **Проблема:** Устройство выбрано одновременно как Master и Slave
+                
+                **Решение:** 
+                
+                Удалить `{{ master_entity }}` из «Доп. Light / Switch»
               notification_id: "{{ notif_id }}"
           - stop: "Master cannot be Slave"
       
       # 2️⃣ Проверка таймера Slave
       - conditions: >
-          {{ has_slaves 
-             and slave_timer_entity is none 
-             and not (sync_slave_group and master_timer_entity is not none) }}
+          {{ not sync_slave_group
+             and has_slaves
+             and slave_timer_entity is none }}
         sequence:
           - variables:
               notif_id: "missing_slave_timer_{{ master_entity|replace('.', '_') }}"
+          
           - service: persistent_notification.create
             data:
               title: "⚠️ Ошибка конфигурации Slave"
-              message: |
-                🚨 **Синхронизация:** {{ 'Включена' if sync_slave_group else 'Выключена' }}
-                ⚠️ **Таймер Slave:** Не выбран
+              message: >
+                🔴 **Синхронизация:** Выключена
+                
+                🔴 **Таймер Slave:** Не выбран
+                
+                **Варианты решения:**
+                
+                1️⃣ Включите (🔄 Синхронизация)
+                
+                2️⃣ Или выберите таймер для Slave (⏲️ Таймер Slave)
               notification_id: "{{ notif_id }}"
           - stop: "Missing Slave timer"
       
