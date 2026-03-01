@@ -442,21 +442,24 @@ action:
   # ❗ Защита от некорректной конфигурации
   - choose:
       # 1️⃣ Проверка Master в Slave
-      - conditions: "{{ master_entity in slave_entities }}"
+      - conditions: "{{ master_entity in (slave_entities | default([])) }}"
         sequence:
           - variables:
-              notif_id: "master_slave_conflict_{{ master_entity|replace('.', '_') }}"
+              notif_id: "master_slave_conflict_{{ this.entity_id|replace('.', '_') }}"
           
           - service: persistent_notification.create
             data:
               title: "⚠️ Конфликт устройств: Master в Slave"
-              message: >
-                🔴 **Устройство:** `{{ master_entity }}`
-                
-                **Проблема:** Устройство выбрано одновременно как Master и Slave
-                
+              message: |
+                🔴 **Master устройство:**
+                `{{ master_entity }}`
+      
+                🔴 **Список Slave:**
+                `{{ (slave_entities | default([])) | join(', ') }}`
+      
+                ❌ Устройство выбрано одновременно как Master и Slave
+      
                 **✅ Решение:**
-                
                 Удалить `{{ master_entity }}` из «Доп. Light / Switch»
               notification_id: "{{ notif_id }}"
           - stop: "Master cannot be Slave"
@@ -468,12 +471,12 @@ action:
              and slave_timer_entity is none }}
         sequence:
           - variables:
-              notif_id: "missing_slave_timer_{{ master_entity|replace('.', '_') }}"
+              notif_id: "missing_slave_timer_{{ this.entity_id|replace('.', '_') }}"
           
           - service: persistent_notification.create
             data:
               title: "⚠️ Ошибка конфигурации Slave"
-              message: >
+              message: |
                 🔴 **Синхронизация:** Выключена
                 
                 🔴 **Таймер Slave:** Не выбран
@@ -487,25 +490,27 @@ action:
           - stop: "Missing Slave timer"
 
       # 3️⃣ Проверка Master в slave_ignore_day_night
-      - conditions: "{{ master_entity in slave_ignore_day_night }}"
+      - conditions: "{{ master_entity in (slave_ignore_day_night | default([])) }}"
         sequence:
           - variables:
-              notif_id: "master_ignore_conflict_{{ master_entity|replace('.', '_') }}"
+              notif_id: "master_ignore_conflict_{{ this.entity_id|replace('.', '_') }}"
           - service: persistent_notification.create
             data:
               title: "⚠️ Конфликт: Master в списке игнорирования"
               message: |
-                🚨 **Устройство:** `{{ master_entity }}`
-                
-                ⚠️ **Проблема:** Master выбран в списке:
+                🚨 **Master устройство:**
+                `{{ master_entity }}`
+      
+                🔴 **Список ignore_day_night:**
+                `{{ (slave_ignore_day_night | default([])) | join(', ') }}`
+      
+                ❌ Master выбран в списке:
                 «Игнорировать время суток (Slave)»
-                
-                **📌 Почему это ошибка:**
-                • Master всегда управляется общим режимом дня/ночи
-                • Опция `slave_ignore_day_night` работает **только для Slave**
-                
+      
+                ⚠️ Эта опция работает только для Slave.
+      
                 **✅ Решение:**
-                Удалить `{{ master_entity }}` из списка:
+                Удалить `{{ master_entity }}` из списка
                 «Игнорировать время суток (Slave)»
               notification_id: "{{ notif_id }}"
           - stop: "Master cannot be in slave_ignore_day_night"
