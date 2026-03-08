@@ -1,4 +1,4 @@
-# Light/Switch Master-Slave Blueprint v5.0 FINAL STABLE
+# Light/Switch Master-Slave Blueprint
 
 [Russian](README.ru.md)
 
